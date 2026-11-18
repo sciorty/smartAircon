@@ -1,7 +1,74 @@
 # smartAircon: RS485 controller for a ducted air conditioner
 
+> **Built for one specific unit**: an R32 ducted split with indoor unit **SDVH12M-A3NA** (the same service manual
+> covers SDVH18M / SDVH24M-A3NA, outdoor SAVH…A-A3NA), wired controller **XKRB1**, indoor board
+> **K32600059 SCN904-Z**. I am publishing it in case it works, or helps, on other models with the same board or
+> wall controller, but **nothing here has been tested on anything else**. Captures from other units are welcome.
+
 An **M5Stack Atom Lite** with an RS485 transceiver that talks to the indoor unit of a ducted air conditioner in
 place of the wired wall controller, and exposes it to **Home Assistant** over MQTT.
+
+## The story
+
+### 1. Clone the controller
+
+The only way to drive this unit was its wired wall controller, on a 4-wire RS485 bus (A, B, GND, +12 V) to the indoor
+board. I wanted it in Home Assistant, so I put a sniffer on that bus and changed one setting at a time on the
+controller: mode, fan, temperature. The controller repeats one 31-byte frame, and only two bytes change:
+
+```
+7A 7A 21 A1 1F 00 00 A3 15 00 80 [01] [08] 00 80 3E 0A 06 00 … 00 68 54     ← off      (set point 24 → 24 − 16 = 0x08)
+7A 7A 21 A1 1F 00 00 A3 15 00 80 [0C] [1A] 00 80 3E 0A 06 00 … 00 62 6A     ← heat, 26 °C, fan auto
+7A 7A 21 A1 1F 00 00 A3 15 00 80 [5C] [1A] 00 80 3E 0A 06 00 … 00 73 7B     ← heat, 26 °C, fan 5
+```
+
+![Command and reply bytes for each mode / fan speed](docs/img/protocol-table.png)
+
+Byte 11 is fan (high nibble) + on bit + mode (low nibble), byte 12 the set point. Version 1 of this firmware
+**replaced the wall controller** and simply sent clones of that frame with those two bytes changed (with both
+controllers on the bus, nothing worked). It ran like that for a long time, and it only ever *talked*.
+
+### 2. Listen to the answers
+
+The indoor unit answers with 37 bytes. Version 2 started reading them. The last two bytes are a **CRC16/Modbus**,
+high byte first (checked on captured frames), so bad frames can be thrown away:
+
+```
+7A 7A A1 21 25 00 00 A1 13 09 33 [03] 00 40 3F 3E 00 … 00 31 31 32 31 8E 22      ← off, everything at ~9 °C
+```
+
+Temperatures are `value − 40`: `3F` = 23 °C room (return air), `3E` = 22 °C indoor coil.
+
+First surprise: v1 sent a new command after every 5 ms of bus silence, about **26 commands a second**, and the unit
+replied only **2–3 times a minute**. With one command per second it replies **~930 times a minute**, with zero CRC
+errors. The send interval is now adjustable from Home Assistant.
+
+### 3. A heating run, byte by byte
+
+With the whole bus captured to a file, switching to heat at 26 °C and playing with the fan gave (byte 11, 12, 17, 18
+and the outdoor bytes 31–34, read from the replies):
+
+```
+12:03:56  HA: mode = heat
+12:03:57  11=13  12=00  17=00  18=00   31..34 = 31 31 32 31    ← start requested (bit 4)
+12:04:12  11=54  12=00                                          ← on (bit 6)
+12:04:54  11=D4  12=00                                          ← compressor running (bit 7)
+12:04:55  11=D4  12=00  17=04                                   ← hot start: fan held off
+12:06:54  11=D4  12=02  17=04          31..34 = 3F 31 31 31    ← fan at minimum, discharge warming up
+12:07:54  11=D4  12=06  17=00          31..34 = 43 30 31 30    ← hot start over, fan 5 → real speed 6
+12:08:49  11=D4  12=06  17=00  18=10   31..34 = 4C 30 31 30    ← discharge 36 °C, outdoor coil cooling down
+```
+
+That pinned down the **start-requested / on / compressor** bits, the **real fan speed** (commanded 1/3/5 shows as
+2/4/6), the 3-minute **hot start** that ignores the requested fan speed, and the outdoor temperatures: compressor
+discharge went from 9 to 80 °C during the run, the outdoor coil from 9 to 1 °C. An earlier guess, an "outdoor unit
+active" bit, never showed up in 10 minutes of compressor running and was removed.
+
+Still open: byte 18 (`10` after ~4 minutes of compressor in heat mode; defrost has not been captured yet, and the
+service manual describes a forced defrost that should help), and bytes 13–17 of the command (`00 80 3E 0A 06`;
+`0x3E` − 40 = 22 °C looks like a "follow me" temperature from the controller).
+
+## What you get
 
 - **Control**: mode (off, cool, dry, fan only, heat), set point, fan speed, as a regular Home Assistant `climate`
   entity.
@@ -12,7 +79,7 @@ place of the wired wall controller, and exposes it to **Home Assistant** over MQ
 
 The protocol is documented in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
-> Entity names and code comments are in Italian (the author's language). The README and the protocol are in English.
+> Entity names and code comments are in Italian (my language). The README and the protocol are in English.
 
 ![Refrigerant circuit diagram used on the dashboard (cooling)](docs/img/schema-freddo.svg)
 
@@ -21,9 +88,7 @@ The protocol is documented in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 - M5Stack Atom Lite + RS485 transceiver (e.g. the M5Stack ATOM RS485 base): **RX G22, TX G19**.
 - The Atom **replaces** the wired wall controller: disconnect the original one. With both on the bus nothing worked
   (two controllers sending commands to the same indoor unit).
-- Tested on an R32 ducted split, indoor unit **SDVH12M-A3NA / SDVH18M-A3NA / SDVH24M-A3NA** with outdoor unit
-  **SAVH…A-A3NA** (wired controller **XKRB1**, indoor board **K32600059 SCN904-Z**). Other units with the same board
-  and wired controller should speak the same protocol.
+- Tested only on the unit described at the top (indoor board K32600059 SCN904-Z, wall controller XKRB1).
 
 ### Wiring
 
