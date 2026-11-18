@@ -1,0 +1,70 @@
+# MQTT climate entity for smartAircon. Put it under "mqtt:" in configuration.yaml (or in a package).
+mqtt:
+  climate:
+    - name: Climatizzatore
+      min_temp: 19
+      max_temp: 28
+      modes:
+        - "off"
+        - "cool"
+        - "dry"
+        - "fan_only"
+        - "heat"
+      fan_modes:
+        - "auto"
+        - "high"
+        - "medium"
+        - "low"
+      current_temperature_topic: "aircon/currentTemp/state"
+      temperature_command_topic: "aircon/setpoint/cmd"
+      temperature_state_topic: "aircon/setpoint/state"
+      mode_command_topic: "aircon/mode/cmd"
+      mode_command_template: >
+        {% if value == "off" %}
+          1
+        {% elif value== "cool" %}
+          9
+        {% elif value== "dry" %}
+          10
+        {% elif value== "fan_only" %}
+          11
+        {% elif value== "heat" %}
+          12
+        {% endif %}
+      mode_state_topic: "aircon/mode/state"
+      mode_state_template: >
+        {% if value == "1" %}
+          off
+        {% elif value== "9" %}
+          cool
+        {% elif value== "10" %}
+          dry
+        {% elif value== "11" %}
+          fan_only
+        {% elif value== "12" %}
+          heat
+        {% endif %}
+      fan_mode_command_topic: "aircon/velocity/cmd"
+      fan_mode_command_template: >
+        {% if value == "auto" %}
+          0
+        {% elif value== "low" %}
+          1
+        {% elif value== "medium" %}
+          3
+        {% elif value== "high" %}
+          5
+        {% endif %}
+      fan_mode_state_topic: "aircon/velocity/state"
+      fan_mode_state_template: >
+        {% if value == "0" %}
+          auto
+        {% elif (value == "1" or value == "2" ) %}
+          low
+        {% elif (value == "3" or value == "4" )  %}
+          medium
+        {% elif (value == "5" or value == "5") %}
+          high
+        {% endif %}
+      precision: 1.0
+

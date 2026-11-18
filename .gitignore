@@ -1,0 +1,8 @@
+# credenziali e note private: mai su git
+secrets.h
+NOTE-PRIVATE.md
+build/
+schema/
+*.bin
+*.elf
+*.map
