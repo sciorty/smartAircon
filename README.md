@@ -19,6 +19,8 @@ The protocol is documented in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 ## Hardware
 
 - M5Stack Atom Lite + RS485 transceiver (e.g. the M5Stack ATOM RS485 base): **RX G22, TX G19**.
+- The Atom **replaces** the wired wall controller: disconnect the original one. With both on the bus nothing worked
+  (two controllers sending commands to the same indoor unit).
 - Indoor unit: **TODO model**.
 - Wiring to the indoor unit: **TODO** (connector, A/B, power).
 
