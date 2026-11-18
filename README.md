@@ -8,9 +8,18 @@
 An **M5Stack Atom Lite** with an RS485 transceiver that talks to the indoor unit of a ducted air conditioner in
 place of the wired wall controller, and exposes it to **Home Assistant** over MQTT.
 
+## Who did what
+
+**Version 1 is mine.** I sniffed the bus, built the table below (in a spreadsheet) and wrote the firmware that
+replaces the wall controller. It worked and I was happy with it. **Years later I asked
+[Claude](https://claude.com/claude-code)** (Anthropic's AI, working in Claude Code on my Home Assistant machine)
+whether I had missed anything, and Claude did the rest: reading and decoding the replies, the CRC, the bus timing
+fix, the capture to files, the Home Assistant discovery and dashboards, every firmware version from 2.0 on (flashed
+over the air), and this README. My part from then on was running the tests it asked for.
+
 ## The story
 
-### 1. Clone the controller
+### 1. Clone the controller (me)
 
 The only way to drive this unit was its wired wall controller, on a 4-wire RS485 bus (A, B, GND, +12 V) to the indoor
 board. I wanted it in Home Assistant, so I put a sniffer on that bus and changed one setting at a time on the
@@ -26,9 +35,9 @@ controller: mode, fan, temperature. The controller repeats one 31-byte frame, an
 
 Byte 11 is fan (high nibble) + on bit + mode (low nibble), byte 12 the set point. Version 1 of this firmware
 **replaced the wall controller** and simply sent clones of that frame with those two bytes changed (with both
-controllers on the bus, nothing worked). It ran like that for a long time, and it only ever *talked*.
+controllers on the bus, nothing worked). It ran like that for years, and it only ever *talked*.
 
-### 2. Listen to the answers
+### 2. Listen to the answers (Claude)
 
 The indoor unit answers with 37 bytes. Version 2 started reading them. The last two bytes are a **CRC16/Modbus**,
 high byte first (checked on captured frames), so bad frames can be thrown away:
@@ -43,7 +52,7 @@ First surprise: v1 sent a new command after every 5 ms of bus silence, about **2
 replied only **2–3 times a minute**. With one command per second it replies **~930 times a minute**, with zero CRC
 errors. The send interval is now adjustable from Home Assistant.
 
-### 3. A heating run, byte by byte
+### 3. A heating run, byte by byte (Claude)
 
 With the whole bus captured to a file, switching to heat at 26 °C and playing with the fan gave (byte 11, 12, 17, 18
 and the outdoor bytes 31–34, read from the replies):
@@ -68,6 +77,13 @@ Still open: byte 18 (`10` after ~4 minutes of compressor in heat mode; defrost h
 service manual describes a forced defrost that should help), and bytes 13–17 of the command (`00 80 3E 0A 06`;
 `0x3E` − 40 = 22 °C looks like a "follow me" temperature from the controller).
 
+## Not sure how to install it?
+
+If the steps below are not enough, give [docs/INSTALL-WITH-CLAUDE.md](docs/INSTALL-WITH-CLAUDE.md) to your own
+Claude (or another AI assistant), together with a link to this repository. It is written for the assistant: it asks
+you the right questions, checks your unit and your wiring before anything is powered, and walks you through flashing,
+Home Assistant and the first test one step at a time.
+
 ## What you get
 
 - **Control**: mode (off, cool, dry, fan only, heat), set point, fan speed, as a regular Home Assistant `climate`
@@ -81,7 +97,10 @@ The protocol is documented in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 > Entity names and code comments are in Italian (my language). The README and the protocol are in English.
 
-![Refrigerant circuit diagram used on the dashboard (cooling)](docs/img/schema-freddo.svg)
+![Refrigerant circuit, cooling](docs/img/schema-cooling.svg)
+![Refrigerant circuit, heating](docs/img/schema-heating.svg)
+
+The two diagrams are the ones on my Home Assistant dashboard (live temperatures are drawn on top of them).
 
 ## Hardware
 
