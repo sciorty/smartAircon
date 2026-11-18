@@ -21,8 +21,23 @@ The protocol is documented in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 - M5Stack Atom Lite + RS485 transceiver (e.g. the M5Stack ATOM RS485 base): **RX G22, TX G19**.
 - The Atom **replaces** the wired wall controller: disconnect the original one. With both on the bus nothing worked
   (two controllers sending commands to the same indoor unit).
-- Indoor unit: **TODO model**.
-- Wiring to the indoor unit: **TODO** (connector, A/B, power).
+- Tested on an R32 ducted split, indoor unit **SDVH12M-A3NA / SDVH18M-A3NA / SDVH24M-A3NA** with outdoor unit
+  **SAVH…A-A3NA** (wired controller **XKRB1**, indoor board **K32600059 SCN904-Z**). Other units with the same board
+  and wired controller should speak the same protocol.
+
+### Wiring
+
+The wall controller is connected to the indoor board with a 4-core cable to the connector marked **485-1 / 485-2**
+(item 3, "wire controller communication interface", in the PCB diagram of the service manual). Its pins are:
+
+| Indoor board | RS485 transceiver |
+|---|---|
+| A | A |
+| B | B |
+| GND | GND |
+| +12 V | power input, **only** if your RS485 board accepts 12 V; otherwise power the Atom via USB |
+
+If nothing comes back, swap A and B (there is no damage risk).
 
 ## Firmware
 
