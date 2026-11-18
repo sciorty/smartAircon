@@ -39,6 +39,13 @@ The wall controller is connected to the indoor board with a 4-core cable to the 
 
 If nothing comes back, swap A and B (there is no damage risk).
 
+**Tested setup**: M5Stack Atom Lite on the **M5Stack ATOM RS485 base** (terminals B, A, DC 12V, G; RX G22, TX G19),
+powered from the **+12 V of the wall-controller cable**, no USB needed. The original controller's plug (the red
+4-pin one) goes into a pin header on a small perfboard, whose wires remap the pins to the base's terminal block. Check
+your own pin order with a multimeter (12 V between +12 V and GND) before connecting.
+
+<img src="docs/img/atom-rs485.jpg" alt="Atom Lite on the ATOM RS485 base, connected to the wall-controller cable" width="380"> <img src="docs/img/adattatore.jpg" alt="Perfboard adapter from the original plug to the terminal block" width="380">
+
 ## Firmware
 
 Arduino, ESP32 core **2.0.17** (M5Atom does not build on 3.x), libraries **M5Atom**, **FastLED 3.6.0** (3.10 breaks
